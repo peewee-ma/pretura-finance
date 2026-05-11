@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRETURA Finance · GJ 2025</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A1628;--navy2:#132240;
+  --gold:#C8A94B;--gold2:#E5C97A;
+  --green:#0F7044;--green2:#16A05E;--greenl:#E3F5EC;
+  --red:#A8332A;--red2:#D94235;--redl:#FDECEA;
+  --blue:#1550A0;--bluel:#E5EEFB;
+  --bg:#F2F0EB;--white:#FFFFFF;
+  --border:#DDD9D0;--text:#0A1628;--text2:#4A5568;--text3:#8A8880;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar{background:var(--navy);color:white;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo-area{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.07)}
+.logo-mark{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:white;letter-spacing:1px}
+.logo-sub{font-size:10px;color:var(--gold2);margin-top:3px;letter-spacing:2px;text-transform:uppercase}
+.nav-group{font-size:9px;font-weight:600;letter-spacing:2px;color:rgba(255,255,255,0.3);padding:18px 20px 6px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;width:100%;background:none;border:none;color:rgba(255,255,255,0.55);font-size:12.5px;font-family:'Inter',sans-serif;cursor:pointer;text-align:left;border-left:2px solid transparent;transition:all 0.12s}
+.nav-item:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.05)}
+.nav-item.active{color:white;background:rgba(200,169,75,0.12);border-left-color:var(--gold)}
+.nav-item svg{width:15px;height:15px;opacity:0.6;flex-shrink:0}
+.nav-item.active svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.07);font-size:10px;color:rgba(255,255,255,0.25);line-height:1.8}
+.main{overflow-y:auto}
+.topbar{background:white;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-left{font-family:'Syne',sans-serif;font-size:15px;font-weight:600}
+.year-badge{background:var(--navy);color:white;font-size:11px;padding:4px 12px;border-radius:20px;letter-spacing:0.5px}
+.content{padding:28px}
+.page{display:none}.page.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:white;border:1px solid var(--border);border-radius:10px;padding:18px 20px;overflow:hidden;position:relative}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--border)}
+.kpi.g::before{background:var(--green2)}.kpi.r::before{background:var(--red2)}.kpi.o::before{background:var(--gold)}.kpi.b::before{background:var(--blue)}
+.kpi-lbl{font-size:10.5px;color:var(--text3);font-weight:500;letter-spacing:0.3px;margin-bottom:8px;text-transform:uppercase}
+.kpi-val{font-family:'DM Mono',monospace;font-size:21px;font-weight:500}
+.kpi-val.g{color:var(--green2)}.kpi-val.r{color:var(--red2)}.kpi-val.o{color:var(--gold)}.kpi-val.n{color:var(--text3)}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px}
+.card{background:white;border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:18px}
+.card-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--border);text-align:left}
+td{padding:9px 12px;border-bottom:1px solid #F5F3EF;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAF7}
+.mono{font-family:'DM Mono',monospace}
+.g{color:var(--green2)}.r{color:var(--red2)}.o{color:var(--gold)}
+.tr{text-align:right}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500}
+.pg{background:var(--greenl);color:var(--green)}.pr{background:var(--redl);color:var(--red)}.po{background:rgba(200,169,75,0.12);color:#7A6018}.pb{background:var(--bluel);color:var(--blue)}.pn{background:#F2F0EB;color:var(--text2)}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F5F3EF}
+.stat-row:last-child{border-bottom:none}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:12.5px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.12s}
+.tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+.info-box{border-radius:8px;padding:12px 16px;font-size:12.5px;margin-bottom:16px;line-height:1.6}
+.ib{background:var(--bluel);border:1px solid rgba(21,80,160,0.15);color:var(--blue)}
+.ig{background:var(--greenl);border:1px solid rgba(15,112,68,0.15);color:var(--green)}
+.io{background:rgba(200,169,75,0.08);border:1px solid rgba(200,169,75,0.25);color:#7A6018}
+.ir{background:var(--redl);border:1px solid rgba(168,51,42,0.15);color:var(--red)}
+.cw{position:relative;height:220px}.cwl{position:relative;height:280px}
+.chat-wrap{max-width:680px}
+.chat-msg{padding:12px 16px;border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.65}
+.chat-ai{background:white;border:1px solid var(--border)}
+.chat-user{background:var(--navy);color:white;margin-left:80px}
+.chat-row{display:flex;gap:10px;margin-top:14px}
+.chat-input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none}
+.chat-input:focus{border-color:var(--navy)}
+.chat-send{padding:10px 20px;background:var(--navy);color:white;border:none;border-radius:7px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif}
+.chat-send:hover{background:var(--navy2)}
+.thinking{color:var(--text3);font-style:italic;font-size:12px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pb2{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:white;cursor:pointer;font-family:'Inter',sans-serif;color:var(--text2)}
+.pb2:hover{background:var(--bg)}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">PRETURA</div>
+    <div class="logo-sub">Finance · GJ 2025</div>
+  </div>
+  <div class="nav-group">Übersicht</div>
+  <button class="nav-item active" onclick="show('dashboard',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+  </button>
+  <div class="nav-group">Operativ</div>
+  <button class="nav-item" onclick="show('einnahmen',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Einnahmen
+  </button>
+  <button class="nav-item" onclick="show('ausgaben',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>Ausgaben
+  </button>
+  <div class="nav-group">Investments</div>
+  <button class="nav-item" onclick="show('flatex',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>flatex Depot
+  </button>
+  <button class="nav-item" onclick="show('ibkr',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>IBKR / Estably
+  </button>
+  <button class="nav-item" onclick="show('bitcoin',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Bitcoin
+  </button>
+  <button class="nav-item" onclick="show('dividenden',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Dividenden
+  </button>
+  <div class="nav-group">KI</div>
+  <button class="nav-item" onclick="show('chat',this)">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>KI-Assistent
+  </button>
+  <div class="sidebar-foot">
+    GJ 2025 · Pretura GmbH<br>
+    DE43 6907 0024 0016 0556 00<br>
+    flatex: 1055310263
+  </div>
+</nav>
+
+<div class="main">
+<div class="topbar">
+  <div class="topbar-left" id="page-title">Dashboard</div>
+  <div class="year-badge">Geschäftsjahr 2025</div>
+</div>
+<div class="content">
+
+<!-- DASHBOARD -->
+<div id="pg-dashboard" class="page active">
+  <div class="kpi-grid">
+    <div class="kpi g"><div class="kpi-lbl">Betriebseinnahmen</div><div class="kpi-val g">+177.600 €</div><div class="kpi-sub">Deutsche Bank · GJ 2025</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Betriebsausgaben</div><div class="kpi-val r">−155.380 €</div><div class="kpi-sub">Löhne, Steuern, Büro</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Cashflow 2025</div><div class="kpi-val g">+22.220 €</div><div class="kpi-sub">Einnahmen − Ausgaben</div></div>
+    <div class="kpi o"><div class="kpi-lbl">Investment-Portfolio</div><div class="kpi-val o">~175.495 €</div><div class="kpi-sub">flatex + IBKR + BTC per 31.12.</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">Monatlicher Cashflow 2025</div><div class="cw"><canvas id="cfChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Einnahmen nach Kategorie</div><div class="cw"><canvas id="einDonut"></canvas></div></div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Investment-Portfolio 31.12.2025</div>
+      <div class="stat-row"><span>flatex Konto-Saldo</span><span class="mono o">28.050 €</span></div>
+      <div class="stat-row"><span>flatex Depot-Wert (Wertpapiere)</span><span class="mono o">39.000 €</span></div>
+      <div class="stat-row"><span>IBKR / Estably NAV</span><span class="mono o">21.467 €</span></div>
+      <div class="stat-row"><span>Bitcoin (1,0002 BTC · Einstand)</span><span class="mono o">86.978 €</span></div>
+      <div class="stat-row" style="border-top:2px solid var(--border);padding-top:12px;margin-top:4px"><span style="font-weight:600">Gesamt</span><span class="mono o" style="font-weight:600">~175.495 €</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Dividenden &amp; Ausschüttungen 2025</div>
+      <div class="stat-row"><span>flatex ETF/REIT-Ausschüttungen</span><span class="mono g">+1.069 €</span></div>
+      <div class="stat-row"><span>IBKR Dividenden (Hermle, MBG etc.)</span><span class="mono g">+1.498 €</span></div>
+      <div class="stat-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px"><span style="font-weight:500">Gesamt netto</span><span class="mono g" style="font-weight:600">+2.567 €</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- EINNAHMEN -->
+<div id="pg-einnahmen" class="page">
+  <div class="kpi-grid">
+    <div class="kpi g"><div class="kpi-lbl">Provisionen Verkauf</div><div class="kpi-val g">+148.300 €</div><div class="kpi-sub">83,5 %</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Provisionen Vermietung</div><div class="kpi-val g">+13.800 €</div><div class="kpi-sub">7,8 %</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Honorare</div><div class="kpi-val g">+15.500 €</div><div class="kpi-sub">8,7 %</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Gesamt</div><div class="kpi-val g">+177.600 €</div><div class="kpi-sub">GJ 2025</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">Einnahmen nach Monat</div><div class="cwl"><canvas id="einMonChart"></canvas></div></div>
+    <div class="card">
+      <div class="card-title">Einnahmen-Aufschlüsselung</div>
+      <table>
+        <thead><tr><th>Kategorie</th><th class="tr">Betrag</th><th class="tr">Anteil</th></tr></thead>
+        <tbody>
+          <tr><td>Maklerprovisionen Verkauf</td><td class="mono g tr">+148.300 €</td><td class="tr">83,5 %</td></tr>
+          <tr><td>Maklerprovisionen Vermietung</td><td class="mono g tr">+13.800 €</td><td class="tr">7,8 %</td></tr>
+          <tr><td>Honorare &amp; Gutachten</td><td class="mono g tr">+15.500 €</td><td class="tr">8,7 %</td></tr>
+          <tr style="font-weight:600"><td>Gesamt</td><td class="mono g tr">+177.600 €</td><td class="tr">100 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- AUSGABEN -->
+<div id="pg-ausgaben" class="page">
+  <div class="kpi-grid">
+    <div class="kpi r"><div class="kpi-lbl">Personalkosten</div><div class="kpi-val r">−58.400 €</div><div class="kpi-sub">37,6 %</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Steuern &amp; Abgaben</div><div class="kpi-val r">−31.200 €</div><div class="kpi-sub">20,1 %</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Büromiete</div><div class="kpi-val r">−23.400 €</div><div class="kpi-sub">15,1 %</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Gesamt</div><div class="kpi-val r">−155.380 €</div><div class="kpi-sub">GJ 2025</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">Ausgaben nach Kategorie</div><div class="cwl"><canvas id="ausgChart"></canvas></div></div>
+    <div class="card">
+      <div class="card-title">Ausgaben-Aufschlüsselung</div>
+      <table>
+        <thead><tr><th>Kategorie</th><th class="tr">Betrag</th><th class="tr">Anteil</th></tr></thead>
+        <tbody>
+          <tr><td>Personalkosten / Gehälter</td><td class="mono r tr">−58.400 €</td><td class="tr">37,6 %</td></tr>
+          <tr><td>Steuern (KSt, GewSt, USt)</td><td class="mono r tr">−31.200 €</td><td class="tr">20,1 %</td></tr>
+          <tr><td>Büromiete Otto-Beck-Str. 4</td><td class="mono r tr">−23.400 €</td><td class="tr">15,1 %</td></tr>
+          <tr><td>Marketing / Portale</td><td class="mono r tr">−9.840 €</td><td class="tr">6,3 %</td></tr>
+          <tr><td>Büro &amp; IT</td><td class="mono r tr">−8.640 €</td><td class="tr">5,6 %</td></tr>
+          <tr><td>Fahrzeugkosten</td><td class="mono r tr">−7.200 €</td><td class="tr">4,6 %</td></tr>
+          <tr><td>Beratung / Rechtsanwalt</td><td class="mono r tr">−7.900 €</td><td class="tr">5,1 %</td></tr>
+          <tr><td>Sonstige Kosten</td><td class="mono r tr">−8.800 €</td><td class="tr">5,7 %</td></tr>
+          <tr style="font-weight:600"><td>Gesamt</td><td class="mono r tr">−155.380 €</td><td class="tr">100 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- FLATEX -->
+<div id="pg-flatex" class="page">
+  <div class="kpi-grid">
+    <div class="kpi o"><div class="kpi-lbl">Konto-Saldo 31.12.2025</div><div class="kpi-val o">28.050 €</div><div class="kpi-sub">KA 004/2025</div></div>
+    <div class="kpi o"><div class="kpi-lbl">Depot-Wert 31.12.2024</div><div class="kpi-val o">39.000 €</div><div class="kpi-sub">4 Turbo-Positionen</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Realisierter G/V 2025</div><div class="kpi-val g">+12.240 €</div><div class="kpi-sub">aus Wertpapierverkäufen</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Depot-Einzahlungen 2025</div><div class="kpi-val r">−35.000 €</div><div class="kpi-sub">Aus Deutsche Bank</div></div>
+  </div>
+  <div class="card"><div class="card-title">Konto-Saldo Verlauf 2024/2025</div><div class="cw"><canvas id="ftChart"></canvas></div></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Depotbestand 31.12.2024</div>
+      <table>
+        <thead><tr><th>Wertpapier</th><th>ISIN</th><th class="tr">Stück</th><th class="tr">Kurs</th><th class="tr">Wert</th></tr></thead>
+        <tbody>
+          <tr><td style="font-size:12px">JPM TURBOL PAYPAL</td><td class="mono" style="font-size:10px">DE000JV12RZ8</td><td class="mono tr">10.000</td><td class="mono tr">0,940 €</td><td class="mono o tr">9.400 €</td></tr>
+          <tr><td style="font-size:12px">MS TURBOL ALLIANZ</td><td class="mono" style="font-size:10px">DE000ME4P5L6</td><td class="mono tr">2.000</td><td class="mono tr">5,390 €</td><td class="mono o tr">10.780 €</td></tr>
+          <tr><td style="font-size:12px">MS TURBOL MICROSTRATEGY</td><td class="mono" style="font-size:10px">DE000MJ4QR24</td><td class="mono tr">1.500</td><td class="mono tr">4,980 €</td><td class="mono o tr">7.470 €</td></tr>
+          <tr><td style="font-size:12px">MS TURBOL AMAZON</td><td class="mono" style="font-size:10px">DE000MJ5V8P1</td><td class="mono tr">5.000</td><td class="mono tr">2,270 €</td><td class="mono o tr">11.350 €</td></tr>
+          <tr style="font-weight:600"><td colspan="4">Gesamt</td><td class="mono o tr">39.000 €</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Trades 2025 nach G/V</div>
+      <table>
+        <thead><tr><th>Datum</th><th>Wertpapier</th><th class="tr">G/V</th></tr></thead>
+        <tbody>
+          <tr><td>20.01.25</td><td style="font-size:12px">MS TURBOL MICROSTRATEGY</td><td class="mono g tr">+2.985 €</td></tr>
+          <tr><td>02.09.25</td><td style="font-size:12px">SG TURBOS DAX</td><td class="mono g tr">+2.350 €</td></tr>
+          <tr><td>27.01.25</td><td style="font-size:12px">GS TUBULL M4I MAS</td><td class="mono g tr">+2.580 €</td></tr>
+          <tr><td>11.07.25</td><td style="font-size:12px">VONT MINIL BTC</td><td class="mono g tr">+2.244 €</td></tr>
+          <tr><td>23.01.25</td><td style="font-size:12px">MS TURBOL ALLIANZ</td><td class="mono g tr">+1.520 €</td></tr>
+          <tr><td>12.11.25</td><td style="font-size:12px">VONT MINIL BTC</td><td class="mono r tr">−4.020 €</td></tr>
+          <tr><td>01.10.25</td><td style="font-size:12px">JPM TURBOS DAX</td><td class="mono r tr">−2.830 €</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- IBKR -->
+<div id="pg-ibkr" class="page">
+  <div class="kpi-grid">
+    <div class="kpi o"><div class="kpi-lbl">NAV 31.12.2025</div><div class="kpi-val o">21.467 €</div><div class="kpi-sub">5 Positionen</div></div>
+    <div class="kpi o"><div class="kpi-lbl">NAV 31.12.2024</div><div class="kpi-val o">34.389 €</div><div class="kpi-sub">Rückgang durch Auszahlung</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Dividenden netto 2025</div><div class="kpi-val g">+1.498 €</div><div class="kpi-sub">Brutto 1.992 € · QSt −495 €</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Tesla-Trade + Hermle</div><div class="kpi-val g">+17.949 €</div><div class="kpi-sub">Tesla +614 € · Hermle +17.335 €</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Depot-Positionen 31.12.2025</div>
+      <table>
+        <thead><tr><th>Wertpapier</th><th class="tr">Stück</th><th class="tr">Kurs</th><th class="tr">Wert</th></tr></thead>
+        <tbody>
+          <tr><td>BASF SE</td><td class="mono tr">100</td><td class="mono tr">44,43 €</td><td class="mono o tr">4.443 €</td></tr>
+          <tr><td>DEFAMA AG</td><td class="mono tr">50</td><td class="mono tr">27,80 €</td><td class="mono o tr">1.390 €</td></tr>
+          <tr><td>Mercedes-Benz Group AG</td><td class="mono tr">100</td><td class="mono tr">60,07 €</td><td class="mono o tr">6.007 €</td></tr>
+          <tr><td>Shell PLC</td><td class="mono tr">101</td><td class="mono tr">31,48 €</td><td class="mono o tr">3.179 €</td></tr>
+          <tr><td>Wells Fargo &amp; Co.</td><td class="mono tr">50</td><td class="mono tr">93,20 $</td><td class="mono o tr">~3.967 €</td></tr>
+          <tr style="font-weight:600"><td colspan="3">Gesamt</td><td class="mono o tr">18.986 €</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card"><div class="card-title">Dividenden nach Wertpapier</div><div class="cw"><canvas id="ibkrDivChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Transaktionen 2025</div>
+    <table>
+      <thead><tr><th>Datum</th><th>Art</th><th>Wertpapier</th><th class="tr">Stück</th><th class="tr">Erlös/Einstand</th><th class="tr">G/V</th></tr></thead>
+      <tbody>
+        <tr><td>07.07.2025</td><td><span class="pill pr">Verkauf</span></td><td>Hermle AG Vorzug (MBH3)</td><td class="mono tr">100</td><td class="mono g tr">+17.335 €</td><td class="mono tr">—</td></tr>
+        <tr><td>07.07.2025</td><td><span class="pill pb">Kauf</span></td><td>Tesla Inc. (TSLA)</td><td class="mono tr">25</td><td class="mono r tr">−6.261 €</td><td class="mono tr">—</td></tr>
+        <tr><td>16.07.2025</td><td><span class="pill pr">Verkauf</span></td><td>Tesla Inc. (TSLA)</td><td class="mono tr">25</td><td class="mono g tr">+6.860 €</td><td class="mono g tr">+614 €</td></tr>
+        <tr><td>07.08.2025</td><td><span class="pill pn">Auszahlung</span></td><td>Patrick A. Werner</td><td>—</td><td class="mono r tr">−17.500 €</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <div class="info-box ib" style="margin-top:14px">
+      <strong>Hermle-Strategie:</strong> Verkauf 100 Hermle-Aktien (17.335 € netto) + Hermle-Dividende (813 €) am gleichen Tag = 18.148 € Zufluss. Davon 17.500 € sofort ausgezahlt. Tesla-Trade in 9 Tagen: +614 € Gewinn.
+    </div>
+  </div>
+</div>
+
+<!-- BITCOIN -->
+<div id="pg-bitcoin" class="page">
+  <div class="kpi-grid">
+    <div class="kpi o"><div class="kpi-lbl">BTC-Bestand 31.12.2025</div><div class="kpi-val o">1,00024 BTC</div><div class="kpi-sub">17 Käufe · kein Verkauf</div></div>
+    <div class="kpi o"><div class="kpi-lbl">Einstandswert</div><div class="kpi-val o">86.978 €</div><div class="kpi-sub">Ø 86.955 €/BTC</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Investiert 2025</div><div class="kpi-val r">−86.978 €</div><div class="kpi-sub">Jul – Dez 2025</div></div>
+    <div class="kpi n"><div class="kpi-lbl" style="color:var(--text3)">Realisierter G/V 2025</div><div class="kpi-val n">0 €</div><div class="kpi-sub">Kein Verkauf in 2025</div></div>
+  </div>
+  <div class="info-box io">
+    <strong>Steuerhinweis:</strong> Alle BTC-Lots wurden Jul–Dez 2025 gekauft, kein Verkauf in 2025. Kein steuerpflichtiger Vorgang. Haltefrist läuft Jul–Dez 2026 ab → ab dann steuerfreie Veräußerung möglich (§23 EStG).
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">Investiertes Kapital nach Monat</div><div class="cw"><canvas id="btcMonChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Einstiegskurse über Zeit</div><div class="cw"><canvas id="btcKursChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Alle 17 Käufe 2025</div>
+    <table>
+      <thead><tr><th>Datum</th><th>Order-ID</th><th class="tr">EUR</th><th class="tr">BTC</th><th class="tr">Kurs €/BTC</th><th class="tr">Fee</th></tr></thead>
+      <tbody id="btcBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DIVIDENDEN -->
+<div id="pg-dividenden" class="page">
+  <div class="kpi-grid">
+    <div class="kpi g"><div class="kpi-lbl">flatex netto</div><div class="kpi-val g">+1.069 €</div><div class="kpi-sub">20 Positionen · ETFs &amp; REITs</div></div>
+    <div class="kpi g"><div class="kpi-lbl">IBKR netto</div><div class="kpi-val g">+1.498 €</div><div class="kpi-sub">12 Positionen · DE + US</div></div>
+    <div class="kpi r"><div class="kpi-lbl">QSt einbehalten</div><div class="kpi-val r">−667 €</div><div class="kpi-sub">flatex 172 € + IBKR 495 €</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Gesamt netto 2025</div><div class="kpi-val g">+2.567 €</div><div class="kpi-sub">32 Positionen gesamt</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-title">Dividenden nach Wertpapier</div><div class="cwl"><canvas id="divAllChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Dividenden nach Monat</div><div class="cwl"><canvas id="divMonChart"></canvas></div></div>
+  </div>
+  <div class="tab-bar">
+    <div class="tab active" onclick="divTab('fx',this)">flatex Ausschüttungen</div>
+    <div class="tab" onclick="divTab('ib',this)">IBKR Dividenden</div>
+  </div>
+  <div id="div-fx">
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead><tr><th>Datum</th><th>Typ</th><th>Wertpapier</th><th class="tr">Brutto</th><th class="tr">KeSt</th><th class="tr">Netto</th></tr></thead>
+        <tbody>
+          <tr><td>14.07.2025</td><td><span class="pill pg">ETF</span></td><td>Global X Nasdaq 100 Covered Call ETF</td><td class="mono tr">78,31 $</td><td class="mono r tr">−11,73 €</td><td class="mono g tr">54,66 €</td></tr>
+          <tr><td>16.07.2025</td><td><span class="pill pg">REIT</span></td><td>Alexandria Real Estate Equities</td><td class="mono tr">132,00 $</td><td class="mono r tr">−11,32 €</td><td class="mono g tr">84,25 €</td></tr>
+          <tr><td>16.07.2025</td><td><span class="pill pg">REIT</span></td><td>EPR Properties</td><td class="mono tr">44,25 $</td><td class="mono r tr">−3,79 €</td><td class="mono g tr">28,25 €</td></tr>
+          <tr><td>25.07.2025</td><td><span class="pill pg">REIT</span></td><td>Big Yellow Group PLC</td><td class="mono tr">119,00 £</td><td class="mono r tr">−13,72 €</td><td class="mono g tr">95,27 €</td></tr>
+          <tr><td>18.08.2025</td><td><span class="pill pg">REIT</span></td><td>EPR Properties</td><td class="mono tr">44,25 $</td><td class="mono r tr">−3,79 €</td><td class="mono g tr">28,19 €</td></tr>
+          <tr><td>20.08.2025</td><td><span class="pill po">Div.</span></td><td>Novo-Nordisk AS</td><td class="mono tr">750 DKK</td><td class="mono tr">—</td><td class="mono g tr">73,34 €</td></tr>
+          <tr><td>05.09.2025</td><td><span class="pill pg">REIT</span></td><td>Sila Realty Trust Inc.</td><td class="mono tr">112,00 $</td><td class="mono r tr">−9,62 €</td><td class="mono g tr">71,60 €</td></tr>
+          <tr><td>08.09.2025</td><td><span class="pill pg">ETF</span></td><td>Global X Nasdaq 100 Covered Call ETF</td><td class="mono tr">113,22 $</td><td class="mono r tr">−16,94 €</td><td class="mono g tr">78,92 €</td></tr>
+          <tr><td>15.09.2025</td><td><span class="pill po">Div.</span></td><td>Alphabet Inc.</td><td class="mono tr">21,00 $</td><td class="mono tr">—</td><td class="mono g tr">15,17 €</td></tr>
+          <tr><td>16.09.2025</td><td><span class="pill pg">REIT</span></td><td>EPR Properties</td><td class="mono tr">44,25 $</td><td class="mono r tr">−3,76 €</td><td class="mono g tr">28,01 €</td></tr>
+          <tr><td>09.10.2025</td><td><span class="pill pg">mREIT</span></td><td>AGNC Investment Corp.</td><td class="mono tr">60,00 $</td><td class="mono r tr">−5,16 €</td><td class="mono g tr">38,42 €</td></tr>
+          <tr><td>13.10.2025</td><td><span class="pill pg">ETF</span></td><td>Global X Nasdaq 100 Covered Call ETF</td><td class="mono tr">116,70 $</td><td class="mono r tr">−17,66 €</td><td class="mono g tr">82,25 €</td></tr>
+          <tr><td>16.10.2025</td><td><span class="pill pg">REIT</span></td><td>Alexandria Real Estate Equities</td><td class="mono tr">132,00 $</td><td class="mono r tr">−11,36 €</td><td class="mono g tr">84,56 €</td></tr>
+          <tr><td>16.10.2025</td><td><span class="pill pg">REIT</span></td><td>EPR Properties</td><td class="mono tr">44,25 $</td><td class="mono r tr">−3,81 €</td><td class="mono g tr">28,35 €</td></tr>
+          <tr><td>10.11.2025</td><td><span class="pill pg">ETF</span></td><td>Global X Nasdaq 100 Covered Call ETF</td><td class="mono tr">121,87 $</td><td class="mono r tr">−18,45 €</td><td class="mono g tr">85,95 €</td></tr>
+          <tr><td>13.11.2025</td><td><span class="pill pg">mREIT</span></td><td>AGNC Investment Corp.</td><td class="mono tr">60,00 $</td><td class="mono r tr">−5,19 €</td><td class="mono g tr">38,59 €</td></tr>
+          <tr><td>18.11.2025</td><td><span class="pill pg">REIT</span></td><td>EPR Properties</td><td class="mono tr">44,25 $</td><td class="mono r tr">−3,81 €</td><td class="mono g tr">28,43 €</td></tr>
+          <tr><td>05.12.2025</td><td><span class="pill pg">REIT</span></td><td>Sila Realty Trust Inc.</td><td class="mono tr">112,00 $</td><td class="mono r tr">−9,60 €</td><td class="mono g tr">71,49 €</td></tr>
+          <tr><td>09.12.2025</td><td><span class="pill pg">mREIT</span></td><td>AGNC Investment Corp.</td><td class="mono tr">60,00 $</td><td class="mono r tr">−5,15 €</td><td class="mono g tr">38,33 €</td></tr>
+          <tr><td>15.12.2025</td><td><span class="pill po">Div.</span></td><td>Alphabet Inc.</td><td class="mono tr">21,00 $</td><td class="mono tr">—</td><td class="mono g tr">15,21 €</td></tr>
+          <tr style="font-weight:600;background:var(--bg)"><td colspan="5">Gesamt flatex 2025</td><td class="mono g tr">1.069,24 €</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="div-ib" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead><tr><th>Datum</th><th>Typ</th><th>Wertpapier</th><th class="tr">Brutto</th><th class="tr">QSt</th><th class="tr">Netto</th></tr></thead>
+        <tbody>
+          <tr><td>24.03.2025</td><td><span class="pill po">Scrip</span></td><td>Shell PLC (SHELL.DRS)</td><td class="mono tr">33,48 €</td><td class="mono tr">—</td><td class="mono g tr">33,48 €</td></tr>
+          <tr><td>07.05.2025</td><td><span class="pill po">Div.</span></td><td>BASF SE</td><td class="mono tr">225,00 €</td><td class="mono r tr">−59,34 €</td><td class="mono g tr">165,66 €</td></tr>
+          <tr><td>12.05.2025</td><td><span class="pill po">Div.</span></td><td>Mercedes-Benz Group AG</td><td class="mono tr">430,00 €</td><td class="mono r tr">−113,41 €</td><td class="mono g tr">316,59 €</td></tr>
+          <tr><td>23.06.2025</td><td><span class="pill po">Scrip</span></td><td>Shell PLC (SHELL.DVD)</td><td class="mono tr">31,67 €</td><td class="mono tr">—</td><td class="mono g tr">31,67 €</td></tr>
+          <tr><td>07.07.2025</td><td><span class="pill po">Div.</span></td><td>Hermle AG Vorzug (MBH3)</td><td class="mono tr">1.105,00 €</td><td class="mono r tr">−291,44 €</td><td class="mono g tr">813,56 €</td></tr>
+          <tr><td>23.07.2025</td><td><span class="pill po">Div.</span></td><td>DEFAMA AG</td><td class="mono tr">30,00 €</td><td class="mono r tr">−7,91 €</td><td class="mono g tr">22,09 €</td></tr>
+          <tr><td>03.03.2025</td><td><span class="pill po">Div.</span></td><td>Wells Fargo &amp; Co.</td><td class="mono tr">20,00 $</td><td class="mono r tr">−6,00 $</td><td class="mono g tr">~17,68 €</td></tr>
+          <tr><td>02.06.2025</td><td><span class="pill po">Div.</span></td><td>Wells Fargo &amp; Co.</td><td class="mono tr">20,00 $</td><td class="mono r tr">−6,00 $</td><td class="mono g tr">~17,68 €</td></tr>
+          <tr><td>22.09.2025</td><td><span class="pill po">Scrip</span></td><td>Shell PLC (SHELL.DRS)</td><td class="mono tr">30,99 €</td><td class="mono tr">—</td><td class="mono g tr">30,99 €</td></tr>
+          <tr><td>02.09.2025</td><td><span class="pill po">Div.</span></td><td>Wells Fargo &amp; Co.</td><td class="mono tr">22,50 $</td><td class="mono r tr">−6,75 $</td><td class="mono g tr">~17,68 €</td></tr>
+          <tr><td>01.12.2025</td><td><span class="pill po">Div.</span></td><td>Wells Fargo &amp; Co.</td><td class="mono tr">22,50 $</td><td class="mono r tr">−6,75 $</td><td class="mono g tr">~17,68 €</td></tr>
+          <tr><td>18.12.2025</td><td><span class="pill po">Scrip</span></td><td>Shell PLC (SHELL1.DI)</td><td class="mono tr">31,01 €</td><td class="mono tr">—</td><td class="mono g tr">31,01 €</td></tr>
+          <tr style="font-weight:600;background:var(--bg)"><td colspan="3">Gesamt IBKR 2025</td><td class="mono tr">1.992 €</td><td class="mono r tr">−495 €</td><td class="mono g tr">1.498 €</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="pg-chat" class="page">
+  <div class="chat-wrap">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.7">Der KI-Assistent kennt alle PRETURA-Finanzdaten für GJ 2025 und beantwortet Fragen dazu.</p>
+    <div id="chatMessages">
+      <div class="chat-msg chat-ai">
+        Guten Tag! Ich bin der PRETURA Finance Assistent. Alle Daten für GJ 2025 sind verfügbar — Einnahmen, Ausgaben, flatex, IBKR, Bitcoin und Dividenden.
+        <div class="presets">
+          <button class="pb2" onclick="askPreset('Wie hoch war der Cashflow 2025?')">Cashflow?</button>
+          <button class="pb2" onclick="askPreset('Welche Investments hatte PRETURA 2025?')">Investments?</button>
+          <button class="pb2" onclick="askPreset('Wie hoch waren die Steuerausgaben 2025?')">Steuern?</button>
+          <button class="pb2" onclick="askPreset('Was ist der Bitcoin-Bestand und Einstandskurs?')">Bitcoin?</button>
+          <button class="pb2" onclick="askPreset('Wie hoch waren die Dividenden 2025 insgesamt?')">Dividenden?</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-row">
+      <input class="chat-input" id="chatInput" placeholder="Frage stellen..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">Senden</button>
+    </div>
+  </div>
+</div>
+
+</div></div></div>
+
+<script>
+// NAVIGATION
+const TITLES = {dashboard:'Dashboard',einnahmen:'Einnahmen 2025',ausgaben:'Ausgaben 2025',flatex:'flatex Depot 2025',ibkr:'IBKR / Estably 2025',bitcoin:'Bitcoin 2025',dividenden:'Dividenden 2025',chat:'KI-Assistent'};
+function show(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('page-title').textContent=TITLES[id]||id;
+}
+function divTab(id,el){
+  ['fx','ib'].forEach(t=>{const e=document.getElementById('div-'+t);if(e)e.style.display='none';});
+  document.getElementById('div-'+id).style.display='block';
+  document.querySelectorAll('.tab-bar .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// BITCOIN TABLE
+const BTC=[
+  ['24.07.2025','PFBC-1695-32+1',500,0.0048973,102097.07],
+  ['25.07.2025','BFBC-FE80-E7',2500,0.02519465,99227.42],
+  ['20.08.2025','BFBC-2371-59',5000,0.05075615,98510.23],
+  ['25.08.2025','BFBC-2371-59b',5000,0.05183087,96467.61],
+  ['16.09.2025','BFBC-5A7B-CC',2500,0.02529034,98851.97],
+  ['22.09.2025','BFBC-8A2A-2C',5000,0.05145636,97169.72],
+  ['26.09.2025','BFBC-09DB-44',3000,0.03170618,94618.78],
+  ['13.10.2025','BFBC-6091-01',1500,0.01490715,100622.86],
+  ['17.10.2025','BFBC-1074-C2',3500,0.03878204,90247.96],
+  ['31.10.2025','BFBC-2FC2-B0',5000,0.05216792,95844.34],
+  ['04.11.2025','BFBC-46B6-0C',10000,0.10962069,91223.65],
+  ['04.11.2025','BFBC-2A2B-7E',5000,0.0548565,91146.90],
+  ['12.11.2025','BFBC-DCA0-A1',5000,0.0563133,88788.97],
+  ['14.11.2025','BFBC-D264-A2',4250,0.0505583,84061.37],
+  ['20.11.2025','BFBC-B763-0B',7000,0.08680271,80642.64],
+  ['01.12.2025','BFBC-9126-52',14999,0.20009989,74957.56],
+  ['02.12.2025','BFBC-67E3-0F',7229.36,0.095,76098.53],
+];
+document.getElementById('btcBody').innerHTML=BTC.map((k,i)=>`<tr style="${i%2?'background:#FAFAF7':''}"><td>${k[0]}</td><td style="font-size:11px;color:var(--text3)">${k[1]}</td><td class="mono g tr">${k[2].toLocaleString('de-DE',{minimumFractionDigits:2})} €</td><td class="mono tr">${k[3].toFixed(8)}</td><td class="mono o tr">${Math.round(k[4]).toLocaleString('de-DE')} €</td><td class="tr" style="font-size:11px">1,18 %</td></tr>`).join('');
+
+// CHARTS
+const M=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const EIN=[17700,21700,26200,24000,13700,20400,21400,11600,25600,22800,17700,34800];
+const AUS=[-11800,-11200,-12200,-11500,-12200,-11700,-11600,-12300,-12100,-13300,-13700,-17780];
+const CF=EIN.map((e,i)=>e+AUS[i]);
+
+new Chart(document.getElementById('cfChart'),{type:'bar',data:{labels:M,datasets:[{label:'Einnahmen',data:EIN,backgroundColor:'rgba(15,112,68,0.65)',borderRadius:3},{label:'Ausgaben',data:AUS,backgroundColor:'rgba(168,51,42,0.55)',borderRadius:3},{type:'line',label:'Netto',data:CF,borderColor:'#0A1628',borderWidth:2,pointRadius:2,fill:false,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxRotation:0}},y:{ticks:{callback:v=>(Math.abs(v)/1000).toFixed(0)+'k',font:{size:10}}}}}});
+
+new Chart(document.getElementById('einDonut'),{type:'doughnut',data:{labels:['Prov. Verkauf','Prov. Vermietung','Honorare'],datasets:[{data:[148300,13800,15500],backgroundColor:['#0F7044','#C8A94B','#1550A0'],borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{font:{size:11},boxWidth:10,padding:8}}}}});
+
+new Chart(document.getElementById('einMonChart'),{type:'bar',data:{labels:M,datasets:[{label:'Einnahmen',data:EIN,backgroundColor:'rgba(15,112,68,0.65)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxRotation:0}},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k',font:{size:10}}}}}});
+
+new Chart(document.getElementById('ausgChart'),{type:'bar',data:{labels:['Personal','Steuern','Büromiete','Sonstige','Marketing','Beratung','IT & Büro','Fahrzeug'],datasets:[{data:[-58400,-31200,-23400,-8800,-9840,-7900,-8640,-7200],backgroundColor:'rgba(168,51,42,0.6)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>Math.abs(v/1000).toFixed(0)+'k',font:{size:10}}},y:{ticks:{font:{size:10}}}}}});
+
+new Chart(document.getElementById('ftChart'),{type:'line',data:{labels:['Jul 24','Sep 24','Dez 24','Mär 25','Jun 25','Sep 25','Dez 25'],datasets:[{label:'Saldo',data:[15947,15947,36439,57313,15258,33741,28050],borderColor:'#C8A94B',backgroundColor:'rgba(200,169,75,0.08)',borderWidth:2,pointRadius:5,fill:true,tension:0.2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>v.toLocaleString('de-DE')+'€',font:{size:10}}}}}});
+
+new Chart(document.getElementById('ibkrDivChart'),{type:'bar',data:{labels:['Hermle','Mercedes','BASF','Shell','WFC','DEFAMA'],datasets:[{data:[813.56,316.59,165.66,127.15,52.68,22.09],backgroundColor:'rgba(200,169,75,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{callback:v=>v+'€',font:{size:10}}}}}});
+
+new Chart(document.getElementById('btcMonChart'),{type:'bar',data:{labels:['Jul','Aug','Sep','Okt','Nov','Dez'],datasets:[{data:[3000,10000,10500,10000,31250,22228.36],backgroundColor:'rgba(200,169,75,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k€',font:{size:11}}}}}});
+
+new Chart(document.getElementById('btcKursChart'),{type:'line',data:{labels:BTC.map(k=>k[0].slice(0,5)),datasets:[{data:BTC.map(k=>k[4]),borderColor:'#C8A94B',backgroundColor:'rgba(200,169,75,0.05)',borderWidth:2,pointRadius:3,fill:true,tension:0.2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:8}},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k',font:{size:10}}}}}});
+
+new Chart(document.getElementById('divAllChart'),{type:'doughnut',data:{labels:['Hermle (IBKR)','Mercedes (IBKR)','BASF (IBKR)','Global X ETF (fx)','Alexandria (fx)','Shell (IBKR)','EPR (fx)','Sila (fx)','WFC (IBKR)','Big Yellow (fx)','AGNC (fx)','Alphabet (fx)','DEFAMA (IBKR)'],datasets:[{data:[813.56,316.59,165.66,221.83,168.81,127.15,84.67,143.09,52.68,95.27,115.34,30.38,22.09],backgroundColor:['#0F7044','#16A05E','#1E8050','#C8A94B','#D4B860','#DFC870','#1550A0','#2060B8','#3070C8','#4080D0','#5090D8','#60A0E0','#70B0E8'],borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{font:{size:9},boxWidth:8,padding:4}}}}});
+
+new Chart(document.getElementById('divMonChart'),{type:'bar',data:{labels:['Mär','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],datasets:[{label:'flatex',data:[0,0,0,280.67,101.53,121.60,233.58,153.97,125.03],backgroundColor:'rgba(200,169,75,0.7)',borderRadius:3},{label:'IBKR',data:[33.48,391.25,31.67,835.65,0,83.67,0,0,83.69],backgroundColor:'rgba(21,80,160,0.6)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:10}}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{callback:v=>v+'€',font:{size:10}}}}}});
+
+// KI CHAT
+async function sendChat(){
+  const inp=document.getElementById('chatInput');
+  const msg=inp.value.trim();
+  if(!msg)return;
+  inp.value='';
+  const wrap=document.getElementById('chatMessages');
+  wrap.innerHTML+=`<div class="chat-msg chat-user">${msg}</div>`;
+  wrap.innerHTML+=`<div class="chat-msg chat-ai thinking" id="thinking">Analysiere...</div>`;
+  wrap.scrollTop=wrap.scrollHeight;
+  try{
+    const hist=[];
+    wrap.querySelectorAll('.chat-msg:not(.thinking)').forEach(el=>{
+      if(el.classList.contains('chat-user'))hist.push({role:'user',content:el.textContent.trim()});
+      else hist.push({role:'assistant',content:el.textContent.trim()});
+    });
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,history:hist.slice(-6)})});
+    if(!res.ok)throw new Error('Fehler '+res.status);
+    const d=await res.json();
+    document.getElementById('thinking').outerHTML=`<div class="chat-msg chat-ai">${(d.reply||'Fehler').replace(/\n/g,'<br>')}</div>`;
+  }catch(e){
+    document.getElementById('thinking').outerHTML=`<div class="chat-msg chat-ai" style="color:var(--red)">Fehler: ${e.message}</div>`;
+  }
+  wrap.scrollTop=wrap.scrollHeight;
+}
+function askPreset(q){document.getElementById('chatInput').value=q;sendChat();}
+</script>
+</body>
+</html>
