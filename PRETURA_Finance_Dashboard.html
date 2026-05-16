@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PRETURA Finance</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="/chart.umd.min.js"></script>
+<style>body,button,input,select{font-family:Arial,sans-serif}</style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0A1628;--navy2:#132240;--gold:#C8A94B;--gold2:#E5C97A;--green:#0F7044;--green2:#16A05E;--greenl:#E3F5EC;--red:#A8332A;--red2:#D94235;--redl:#FDECEA;--blue:#1550A0;--bluel:#E5EEFB;--bg:#F2F0EB;--bg2:#E8E5DE;--white:#fff;--border:#DDD9D0;--text:#0A1628;--text2:#4A5568;--text3:#8A8880}
@@ -1026,7 +1026,7 @@ if(RECHNUNGEN.length === 0) {
 }
 
 // ── NAVIGATION ──────────────────────────────────────────────
-const TITLES={dashboard:'Dashboard',trading:'Trading',,einnahmen:'Einnahmen',ausgaben:'Ausgaben',rechnungen:'Rechnungen',flatex:'flatex Depot',ibkr:'IBKR / Estably',bitcoin:'Bitcoin',dividenden:'Dividenden',analyse:'KI-Analyse',chat:'KI-Assistent'};
+const TITLES={dashboard:'Dashboard',trading:'Trading',einnahmen:'Einnahmen',ausgaben:'Ausgaben',rechnungen:'Rechnungen',flatex:'flatex Depot',ibkr:'IBKR / Estably',bitcoin:'Bitcoin',dividenden:'Dividenden',analyse:'KI-Analyse',chat:'KI-Assistent'};
 function show(id,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.navi').forEach(b=>b.classList.remove('active'));
@@ -1319,9 +1319,165 @@ async function sendChat(){
 }
 function ask(q){document.getElementById('chatInput').value=q;sendChat();}
 
+// ── KONTOSTAND TOGGLE ────────────────────────────────────────
+let kontenOffen = false;
+function toggleKonten() {
+  kontenOffen = !kontenOffen;
+  const detail = document.getElementById('konto-detail');
+  const chevron = document.getElementById('konto-chevron');
+  if(kontenOffen) { detail.style.display='grid'; chevron.style.transform='rotate(180deg)'; }
+  else { detail.style.display='none'; chevron.style.transform='rotate(0deg)'; }
+}
+
+// ── GOOGLE SHEETS ─────────────────────────────────────────────
+function loadFromSheets() {
+  const modal = document.getElementById('sheets-modal');
+  if(modal) modal.style.display='flex';
+}
+function closeModal() {
+  const modal = document.getElementById('sheets-modal');
+  if(modal) modal.style.display='none';
+}
+function saveSheetId() {
+  const inp = document.getElementById('sheet-id-input');
+  if(inp) localStorage.setItem('pretura_sheet_id', inp.value.trim());
+}
+async function fetchSheets() {
+  const status = document.getElementById('sheets-status');
+  if(status) { status.style.display='block'; status.style.color='var(--text2)'; status.textContent='⏳ Lade Daten...'; }
+  try {
+    const r = await fetch('/api/sheets2');
+    if(!r.ok) throw new Error('Server-Fehler '+r.status);
+    const d = await r.json();
+    const rechnungen = d['Rechnungen'];
+    if(rechnungen && rechnungen.length > 1) {
+      const newRe = rechnungen.slice(1).map((r,i) => ({
+        id: Date.now()+i, nr:r[0]||'', datum:r[1]||'', kunde:r[2]||'',
+        objekt:r[3]||'', betrag:parseFloat((r[4]||'0').toString().replace(',','.'))||0,
+        faellig:r[5]||'', status:r[6]||'offen', jahr:parseInt(r[7])||2025, notiz:r[8]||''
+      })).filter(r=>r.nr&&r.betrag>0);
+      if(newRe.length>0) { saveRechnungen(newRe); updateRechnungenUI(); }
+    }
+    if(status) { status.style.color='var(--green2)'; status.textContent='✅ Daten geladen!'; }
+    setTimeout(()=>closeModal(), 2000);
+  } catch(e) {
+    if(status) { status.style.color='var(--red2)'; status.textContent='❌ '+e.message; }
+  }
+}
+
+// ── ALL TRADES DATA ───────────────────────────────────────────
+const ALL_TRADES = [
+  ['2025-01-20','Verkauf','flatex','MS TURBOL MIGA MICROSTRATEGY','DE000MJ4QR24',1500,13.64,20460,2985],
+  ['2025-01-23','Verkauf','flatex','MS TURBOL ALV ALLIANZ SE','DE000ME4P5L6',2000,6.68,13360,1520],
+  ['2025-01-27','Verkauf','flatex','GS TUBULL M4I MAS','DE000GQ8SG77',2000,10.87,21736,2580],
+  ['2025-03-18','Verkauf','flatex','MS TURBOL IOS IONOS','DE000MG0VRC3',1500,4.75,7125,1125],
+  ['2025-07-07','Verkauf','IBKR','Hermle AG Vorzug','DE0006052830',100,173.59,17335,0],
+  ['2025-07-07','Kauf','IBKR','Tesla Inc. (TSLA)','US88160R1014',25,293.12,-6261,0],
+  ['2025-07-11','Verkauf','flatex','VONT MINIL BTC','DE000VC1HCL6',220,53.75,11821,2244],
+  ['2025-07-16','Verkauf','IBKR','Tesla Inc. (TSLA)','US88160R1014',25,320.02,6860,614],
+  ['2025-07-24','Kauf','BTC','Bitcoin (BTC)',null,0.0048973,102097,-500,0],
+  ['2025-07-25','Kauf','BTC','Bitcoin (BTC)',null,0.02519465,99227,-2500,0],
+  ['2025-08-20','Kauf','BTC','Bitcoin (BTC)',null,0.05075615,98510,-5000,0],
+  ['2025-08-25','Kauf','BTC','Bitcoin (BTC)',null,0.05183087,96468,-5000,0],
+  ['2025-09-02','Verkauf','flatex','SG TURBOS DAX','DE000FA1Q2N3',12500,1.18,14748,2350],
+  ['2025-09-16','Kauf','BTC','Bitcoin (BTC)',null,0.02529034,98852,-2500,0],
+  ['2025-09-22','Kauf','BTC','Bitcoin (BTC)',null,0.05145636,97170,-5000,0],
+  ['2025-09-26','Kauf','BTC','Bitcoin (BTC)',null,0.03170618,94619,-3000,0],
+  ['2025-10-01','Verkauf','flatex','JPM TURBOS DAX','DE000JU3RF70',1000,2.13,2130,-2830],
+  ['2025-10-13','Kauf','BTC','Bitcoin (BTC)',null,0.01490715,100623,-1500,0],
+  ['2025-10-17','Kauf','BTC','Bitcoin (BTC)',null,0.03878204,90248,-3500,0],
+  ['2025-10-31','Kauf','BTC','Bitcoin (BTC)',null,0.05216792,95844,-5000,0],
+  ['2025-11-04','Kauf','BTC','Bitcoin (BTC)',null,0.10962069,91224,-10000,0],
+  ['2025-11-04','Kauf','BTC','Bitcoin (BTC)',null,0.0548565,91147,-5000,0],
+  ['2025-11-12','Kauf','BTC','Bitcoin (BTC)',null,0.0563133,88789,-5000,0],
+  ['2025-11-12','Verkauf','flatex','VONT MINIL BTC','DE000VC3PTR6',500,34.19,17091,-4020],
+  ['2025-11-14','Kauf','BTC','Bitcoin (BTC)',null,0.0505583,84061,-4250,0],
+  ['2025-11-20','Kauf','BTC','Bitcoin (BTC)',null,0.08680271,80643,-7000,0],
+  ['2025-12-01','Kauf','BTC','Bitcoin (BTC)',null,0.20009989,74958,-14999,0],
+  ['2025-12-02','Kauf','BTC','Bitcoin (BTC)',null,0.095,76099,-7229.36,0],
+];
+
+// ── TRADING FUNKTIONEN ────────────────────────────────────────
+function trTab(id, el) {
+  ['alle','flatex','ibkr','btc','stats'].forEach(t => {
+    const e = document.getElementById('tr-'+t); if(e) e.style.display='none';
+  });
+  const target = document.getElementById('tr-'+id);
+  if(target) target.style.display='block';
+  document.querySelectorAll('#tr-tabs .tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(id==='alle') renderTrades();
+  if(id==='flatex') initTrFxCharts();
+  if(id==='stats') initTrStatsCharts();
+}
+
+function renderTrades() {
+  const q = (document.getElementById('tr-search')?.value||'').toLowerCase();
+  const typ = document.getElementById('tr-typ-filter')?.value||'';
+  const depot = document.getElementById('tr-depot-filter')?.value||'';
+  const data = ALL_TRADES.filter(t => {
+    if(typ && t[1]!==typ) return false;
+    if(depot && t[2]!==depot) return false;
+    if(q && !t[3].toLowerCase().includes(q) && !(t[4]||'').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>b[0].localeCompare(a[0]));
+  const tbody = document.getElementById('tr-body');
+  if(!tbody) return;
+  const dc = {flatex:'po',IBKR:'pb',BTC:'pg'};
+  tbody.innerHTML = data.map(t => {
+    const gv=t[8];
+    return '<tr><td>'+t[0]+'</td><td><span class="pill '+(t[1]==='Kauf'?'pb':'pr')+'">'+t[1]+'</span></td>'
+      +'<td><span class="pill '+(dc[t[2]]||'pn')+'" style="font-size:9px">'+t[2]+'</span></td>'
+      +'<td style="font-size:12px">'+t[3]+'</td>'
+      +'<td class="mono tr">'+(t[5]?.toFixed(t[2]==='BTC'?8:0)||'—')+'</td>'
+      +'<td class="mono tr">'+(t[6]?.toLocaleString('de-DE',{maximumFractionDigits:3})||'—')+' €</td>'
+      +'<td class="mono '+(t[7]>=0?'g':'r')+' tr">'+(t[7]>=0?'+':'')+Math.abs(t[7]).toLocaleString('de-DE',{minimumFractionDigits:2})+' €</td>'
+      +'<td class="mono '+(gv>0?'g':gv<0?'r':'dim')+' tr">'+(gv===0?'—':(gv>0?'+':'')+gv.toLocaleString('de-DE',{minimumFractionDigits:2})+' €')+'</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Keine Trades</td></tr>';
+  const cnt = document.getElementById('tr-count-label');
+  if(cnt) cnt.textContent = data.length+' Trades · G/V: '+data.reduce((s,t)=>s+t[8],0).toLocaleString('de-DE',{minimumFractionDigits:2})+' €';
+}
+
+let trFxInit=false, trStatsInit=false;
+function initTrFxCharts() {
+  if(trFxInit) return; trFxInit=true;
+  const fxV = ALL_TRADES.filter(t=>t[2]==='flatex'&&t[1]==='Verkauf'&&t[8]!==0);
+  const el1 = document.getElementById('trFxGvChart');
+  if(el1) new Chart(el1,{type:'bar',data:{labels:fxV.map(t=>t[3].slice(0,20)),datasets:[{data:fxV.map(t=>t[8]),backgroundColor:fxV.map(t=>t[8]>=0?'rgba(15,112,68,.7)':'rgba(168,51,42,.6)'),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+  const mVol=Array(12).fill(0);
+  ALL_TRADES.filter(t=>t[2]==='flatex').forEach(t=>{mVol[parseInt(t[0].slice(5,7))-1]+=Math.abs(t[7]);});
+  const el2 = document.getElementById('trFxMonChart');
+  if(el2) new Chart(el2,{type:'bar',data:{labels:['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'],datasets:[{data:mVol,backgroundColor:'rgba(200,169,75,.7)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:0}},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'k',font:{size:9}}}}}});
+}
+
+function initTrStatsCharts() {
+  if(trStatsInit) return; trStatsInit=true;
+  const depots=['flatex','IBKR','BTC'];
+  const gvD=depots.map(d=>ALL_TRADES.filter(t=>t[2]===d).reduce((s,t)=>s+t[8],0));
+  const volD=depots.map(d=>ALL_TRADES.filter(t=>t[2]===d).reduce((s,t)=>s+Math.abs(t[7]),0));
+  const e1=document.getElementById('trDepotGvChart');
+  if(e1) new Chart(e1,{type:'bar',data:{labels:depots,datasets:[{data:gvD,backgroundColor:gvD.map(v=>v>=0?'rgba(15,112,68,.7)':'rgba(168,51,42,.6)'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}});
+  const e2=document.getElementById('trDepotVolChart');
+  if(e2) new Chart(e2,{type:'doughnut',data:{labels:depots,datasets:[{data:volD,backgroundColor:['#C8A94B','#1550A0','#F97316'],borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{font:{size:10},boxWidth:10}}}}});
+  const e3=document.getElementById('trTypChart');
+  if(e3) new Chart(e3,{type:'doughnut',data:{labels:['Käufe','Verkäufe'],datasets:[{data:[ALL_TRADES.filter(t=>t[1]==='Kauf').length,ALL_TRADES.filter(t=>t[1]==='Verkauf').length],backgroundColor:['#1550A0','#0F7044'],borderWidth:2,borderColor:'white'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{font:{size:10},boxWidth:10}}}}});
+}
+
+// Trading KPIs setzen
+(function(){
+  const gv=ALL_TRADES.reduce((s,t)=>s+t[8],0);
+  const loss=ALL_TRADES.filter(t=>t[8]<0).reduce((s,t)=>s+t[8],0);
+  const vol=ALL_TRADES.reduce((s,t)=>s+Math.abs(t[7]),0);
+  const e1=document.getElementById('tr-gv-total'); if(e1){e1.textContent=(gv>=0?'+':'')+gv.toLocaleString('de-DE',{minimumFractionDigits:2})+' €';e1.className='kv '+(gv>=0?'g':'r');}
+  const e2=document.getElementById('tr-loss-total'); if(e2) e2.textContent=loss.toLocaleString('de-DE',{minimumFractionDigits:2})+' €';
+  const e3=document.getElementById('tr-vol-total'); if(e3) e3.textContent=(vol/1000).toFixed(0)+' T€';
+  const e4=document.getElementById('tr-count'); if(e4) e4.textContent=ALL_TRADES.length;
+})();
+
 // ── INIT ─────────────────────────────────────────────────────
 setTimeout(initAllCharts, 100);
 updateRechnungenUI();
+renderTrades();
 </script>
 </body>
 </html>
