@@ -19,7 +19,7 @@ geeinigt habt (Seasonax-Export, bestimmte Analystenhäuser etc.).
 
 from dataclasses import dataclass, field
 
-from schemas import AgentCategory
+from swing.schemas import AgentCategory
 
 
 @dataclass
@@ -72,13 +72,17 @@ AGENTS: list[AgentConfig] = [
         category=AgentCategory.GEX,
         label="GEX-Level-Agent",
         web_access="whitelist",
-        allowed_domains=["squeezemetrics.com", "quantdata.us", "spotgamma.com"],
+        allowed_domains=["squeezemetrics.com", "quantdata.us", "spotgamma.com", "quantwheel.com"],
         system_prompt=(
             "Du analysierst Gamma Exposure (GEX) für den angegebenen Titel: Call Wall, "
             "Put Wall, Zero-Gamma-Flip-Punkt, aktuelles Dealer-Hedging-Regime (long/short "
             "gamma). Leite ab, ob das GEX-Profil eher dämpfend (Range-bound) oder "
-            "verstärkend (trendbeschleunigend) wirkt. Falls keine belastbaren GEX-Daten "
-            "auf den zulässigen Quellen verfügbar sind, sag das explizit statt zu raten."
+            "verstärkend (trendbeschleunigend) wirkt. Prüfe insbesondere "
+            "quantwheel.com/tools/gex/<ticker in Kleinbuchstaben> (z.B. quantwheel.com/tools/gex/tsla) "
+            "- diese Seite listet Call Wall, Put Wall und Gamma-Flip für viele bekannte "
+            "US-Titel im Klartext. Falls keine belastbaren GEX-Daten auf den zulässigen "
+            "Quellen verfügbar sind (z.B. bei europäischen Einzelaktien), sag das explizit "
+            "statt zu raten."
         ),
     ),
     AgentConfig(
