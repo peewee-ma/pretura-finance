@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import time
 from typing import Optional
 
 from anthropic import AsyncAnthropic
@@ -139,23 +141,114 @@ async def _run_llm_agent(agent: AgentConfig, ticker: str, context: str) -> Agent
     )
 
 
-def fetch_price_history_daily(ticker: str, lookback_days: int = 260):
-    import yfinance as yf
+PRICE_RANGE_CACHE_FILE = "/app/data/price_range_cache.json"
+PRICE_RANGE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 Stunden
 
-    df = yf.Ticker(ticker).history(period=f"{lookback_days}d", interval="1d")
-    if df.empty:
-        raise ValueError(f"Keine Kursdaten für {ticker} gefunden.")
-    return df
+FIBONACCI_RANGE_PROMPT = """Du bist ein Finanzdaten-Recherche-Assistent. Finde für den Titel
+{ticker} folgende Werte der letzten 52 Wochen:
+- Das höchste Tageshoch (52-Wochen-Hoch)
+- Das niedrigste Tagestief (52-Wochen-Tief)
+- Den aktuellen/letzten Schlusskurs
+
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt, kein Fließtext davor/danach:
+{{"swing_high": <Zahl>, "swing_low": <Zahl>, "last_close": <Zahl>, "quelle": "<kurze Quellenangabe>"}}
+
+Nutze maximal 2 Websuchen."""
 
 
-async def _run_fibonacci_agent(ticker: str) -> AgentResult:
+def _load_price_range_cache() -> dict:
+    try:
+        with open(PRICE_RANGE_CACHE_FILE) as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _save_price_range_cache(cache: dict) -> None:
+    try:
+        os.makedirs("/app/data", exist_ok=True)
+        with open(PRICE_RANGE_CACHE_FILE, "w") as f:
+            json.dump(cache, f)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def fetch_swing_range_via_llm(
+    ticker: str,
+    manual_swing_high: Optional[float] = None,
+    manual_swing_low: Optional[float] = None,
+) -> dict:
+    """
+    Ermittelt 52-Wochen-Hoch/-Tief und aktuellen Kurs per Web-Suche (statt
+    einer externen Kursdaten-Bibliothek - konsistent mit allen anderen
+    Agenten, ohne Yahoo-Finance-Rate-Limit-Problem).
+
+    Falls manual_swing_high/manual_swing_low übergeben werden (z.B. weil
+    der Nutzer die Werte aus seinem eigenen Chart präziser kennt als eine
+    Websuche), werden NUR diese für die Fibonacci-Berechnung verwendet -
+    der aktuelle Kurs wird trotzdem per Websuche ermittelt (und gecacht),
+    da er sich laufend ändert und die manuellen Werte i.d.R. nur
+    Hoch/Tief betreffen.
+    """
+    cache = _load_price_range_cache()
+    entry = cache.get(ticker)
+    if entry and (time.time() - entry.get("ts", 0)) < PRICE_RANGE_CACHE_TTL_SECONDS:
+        result = dict(entry["data"])
+    else:
+        response = await client.messages.create(
+            model=AGENT_MODEL,
+            max_tokens=2000,
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 2}],
+            messages=[{"role": "user", "content": FIBONACCI_RANGE_PROMPT.format(ticker=ticker)}],
+        )
+
+        raw_text = _extract_json_text(response)
+        data = json.loads(raw_text)
+
+        result = {
+            "swing_high": float(data["swing_high"]),
+            "swing_low": float(data["swing_low"]),
+            "last_close": float(data["last_close"]),
+            "quelle": data.get("quelle", "Websuche"),
+        }
+
+        if result["swing_high"] <= result["swing_low"]:
+            raise ValueError(
+                f"Unplausible Werte: high={result['swing_high']} <= low={result['swing_low']}"
+            )
+
+        cache[ticker] = {"data": result, "ts": time.time()}
+        _save_price_range_cache(cache)
+
+    if manual_swing_high is not None and manual_swing_low is not None:
+        if manual_swing_high <= manual_swing_low:
+            raise ValueError(
+                f"Unplausible manuelle Werte: high={manual_swing_high} <= low={manual_swing_low}"
+            )
+        result = {
+            **result,
+            "swing_high": manual_swing_high,
+            "swing_low": manual_swing_low,
+            "quelle": "manuell vom Nutzer angegeben",
+        }
+
+    return result
+
+
+async def _run_fibonacci_agent(
+    ticker: str,
+    manual_swing_high: Optional[float] = None,
+    manual_swing_low: Optional[float] = None,
+) -> AgentResult:
     last_exc = None
-    for attempt in range(4):
+    for attempt in range(2):
         try:
-            df = await asyncio.to_thread(fetch_price_history_daily, ticker)
-            swing_high = float(df["High"].max())
-            swing_low = float(df["Low"].min())
-            last_close = float(df["Close"].iloc[-1])
+            range_data = await fetch_swing_range_via_llm(
+                ticker, manual_swing_high, manual_swing_low
+            )
+            swing_high = range_data["swing_high"]
+            swing_low = range_data["swing_low"]
+            last_close = range_data["last_close"]
             diff = swing_high - swing_low
             levels = {
                 "0.0": swing_high,
@@ -170,28 +263,26 @@ async def _run_fibonacci_agent(ticker: str) -> AgentResult:
             return AgentResult(
                 agent=AgentCategory.FIBONACCI,
                 direction=Direction.NEUTRAL,
-                confidence=70,
+                confidence=65 if manual_swing_high is None else 80,
                 kernaussage=(
                     f"Aktueller Kurs {last_close:.2f} liegt am naechsten am "
                     f"{nearest_level[0]}%-Retracement ({nearest_level[1]:.2f}). "
-                    f"Swing-Range: {swing_low:.2f} - {swing_high:.2f}."
+                    f"52-Wochen-Range: {swing_low:.2f} - {swing_high:.2f}."
                 ),
                 zeitrahmen=None,
-                quellen=["berechnet aus Kursdaten"],
+                quellen=[range_data.get("quelle", "Websuche")],
                 rohdaten={"levels": levels, "swing_high": swing_high, "swing_low": swing_low},
             )
         except Exception as exc:
             last_exc = exc
-            wait_s = 3 * (attempt + 1)
-            logger.warning("Fibonacci-Agent Versuch %d fehlgeschlagen (%s), warte %ds", attempt + 1, exc, wait_s)
-            if attempt < 3:
-                await asyncio.sleep(wait_s)
-    logger.exception("Fibonacci-Agent endgueltig fehlgeschlagen nach Retries")
+            logger.warning("Fibonacci-Agent Versuch %d fehlgeschlagen: %s", attempt + 1, exc)
+
+    logger.exception("Fibonacci-Agent endgueltig fehlgeschlagen nach Retry")
     return AgentResult(
         agent=AgentCategory.FIBONACCI,
         direction=Direction.NEUTRAL,
         confidence=0,
-        kernaussage="Fibonacci-Level konnten nicht berechnet werden (auch nach Retries).",
+        kernaussage="Fibonacci-Level konnten nicht berechnet werden (auch nach Retry).",
         fehler=str(last_exc),
     )
 
@@ -246,14 +337,19 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in folgendem Format:
     )
 
 
-async def analyze_ticker(ticker: str, context: str = "") -> SwingAnalysisReport:
+async def analyze_ticker(
+    ticker: str,
+    context: str = "",
+    manual_swing_high: Optional[float] = None,
+    manual_swing_low: Optional[float] = None,
+) -> SwingAnalysisReport:
     tasks = []
     for agent in AGENTS:
         if agent.web_access == "computed":
             continue
         tasks.append(_run_llm_agent(agent, ticker, context))
 
-    tasks.append(_run_fibonacci_agent(ticker))
+    tasks.append(_run_fibonacci_agent(ticker, manual_swing_high, manual_swing_low))
 
     results: list[AgentResult] = await asyncio.gather(*tasks)
 
