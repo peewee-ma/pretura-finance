@@ -15,8 +15,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from orchestrator import analyze_ticker
-from schemas import SwingAnalysisReport
+from swing.orchestrator import analyze_ticker
+from swing.schemas import SwingAnalysisReport
 
 router = APIRouter()
 
