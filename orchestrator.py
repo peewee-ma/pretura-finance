@@ -27,8 +27,8 @@ from typing import Optional
 
 from anthropic import AsyncAnthropic
 
-from agents_config import AGENTS, SYNTHESIS_SYSTEM_PROMPT, AgentConfig
-from schemas import AgentCategory, AgentResult, Direction, RiskReward, SwingAnalysisReport
+from swing.agents_config import AGENTS, SYNTHESIS_SYSTEM_PROMPT, AgentConfig
+from swing.schemas import AgentCategory, AgentResult, Direction, RiskReward, SwingAnalysisReport
 
 logger = logging.getLogger("fdax_swing")
 
@@ -37,8 +37,13 @@ SYNTHESIS_MODEL = "claude-sonnet-4-6"
 
 client = AsyncAnthropic()  # erwartet ANTHROPIC_API_KEY in der Umgebung
 
+# Max. Anzahl Websuchen pro Agent - begrenzt das Token-Budget, das für
+# Suchergebnisse "verbraucht" wird, bevor die finale JSON-Antwort kommt.
+MAX_WEB_SEARCHES_PER_AGENT = 3
+
 AGENT_RESULT_JSON_INSTRUCTIONS = """
-Antworte AUSSCHLIESSLICH mit einem JSON-Objekt (kein Markdown, kein Fließtext davor/danach)
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt (kein Markdown, kein Fließtext davor/danach,
+keine Zitat-Tags oder Quellenverweise im Fließtext - schreibe alles in eigenen Worten)
 in exakt folgendem Format:
 
 {
@@ -51,19 +56,60 @@ in exakt folgendem Format:
   "quellen": ["<url oder bezeichnung>", ...],
   "fehler": "<string oder null, falls du das Thema nicht belastbar einschätzen konntest>"
 }
+
+Nutze maximal 3 Websuchen. Fasse dich bei der Kernaussage kurz (2-4 Sätze), damit
+garantiert Platz für die abschließende JSON-Antwort bleibt.
 """
 
 
 def _build_web_search_tool(agent: AgentConfig) -> Optional[dict]:
     if agent.web_access == "free":
-        return {"type": "web_search_20250305", "name": "web_search"}
+        return {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": MAX_WEB_SEARCHES_PER_AGENT,
+        }
     if agent.web_access == "whitelist":
         return {
             "type": "web_search_20250305",
             "name": "web_search",
             "allowed_domains": agent.allowed_domains,
+            "max_uses": MAX_WEB_SEARCHES_PER_AGENT,
         }
     return None
+
+
+def _extract_json_text(response) -> str:
+    text_parts = [b.text for b in response.content if b.type == "text"]
+    raw_text = "\n".join(text_parts).strip()
+    return raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
+
+async def _call_agent_once(agent: AgentConfig, tools: list, user_msg: str) -> AgentResult:
+    """Ein einzelner API-Call - kann bei leerer/kaputter Antwort eine Exception werfen,
+    die von _run_llm_agent für den Retry abgefangen wird."""
+    response = await client.messages.create(
+        model=AGENT_MODEL,
+        max_tokens=4000,
+        system=agent.system_prompt,
+        tools=tools,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+
+    raw_text = _extract_json_text(response)
+    data = json.loads(raw_text)  # wirft bei leer/kaputt -> Retry bzw. finaler Fehler
+
+    return AgentResult(
+        agent=agent.category,
+        direction=Direction(data.get("direction", "neutral")),
+        confidence=int(data.get("confidence", 0)),
+        kernaussage=data.get("kernaussage", ""),
+        kursziel_low=data.get("kursziel_low"),
+        kursziel_high=data.get("kursziel_high"),
+        zeitrahmen=data.get("zeitrahmen"),
+        quellen=data.get("quellen", []) or [],
+        fehler=data.get("fehler"),
+    )
 
 
 async def _run_llm_agent(agent: AgentConfig, ticker: str, context: str) -> AgentResult:
@@ -77,40 +123,25 @@ async def _run_llm_agent(agent: AgentConfig, ticker: str, context: str) -> Agent
         f"{AGENT_RESULT_JSON_INSTRUCTIONS}"
     )
 
-    try:
-        response = await client.messages.create(
-            model=AGENT_MODEL,
-            max_tokens=1000,
-            system=agent.system_prompt,
-            tools=tools,
-            messages=[{"role": "user", "content": user_msg}],
-        )
+    last_exc: Optional[Exception] = None
+    for attempt in range(2):  # erster Versuch + 1 Retry
+        try:
+            return await _call_agent_once(agent, tools, user_msg)
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning(
+                "Agent %s Versuch %d fehlgeschlagen: %s", agent.category, attempt + 1, exc
+            )
+            continue
 
-        text_parts = [b.text for b in response.content if b.type == "text"]
-        raw_text = "\n".join(text_parts).strip()
-        raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-
-        data = json.loads(raw_text)
-        return AgentResult(
-            agent=agent.category,
-            direction=Direction(data.get("direction", "neutral")),
-            confidence=int(data.get("confidence", 0)),
-            kernaussage=data.get("kernaussage", ""),
-            kursziel_low=data.get("kursziel_low"),
-            kursziel_high=data.get("kursziel_high"),
-            zeitrahmen=data.get("zeitrahmen"),
-            quellen=data.get("quellen", []) or [],
-            fehler=data.get("fehler"),
-        )
-    except Exception as exc:  # noqa: BLE001 - bewusst breit, ein Agent darf den Report nicht killen
-        logger.exception("Agent %s fehlgeschlagen", agent.category)
-        return AgentResult(
-            agent=agent.category,
-            direction=Direction.NEUTRAL,
-            confidence=0,
-            kernaussage="Agent konnte keine Analyse liefern.",
-            fehler=str(exc),
-        )
+    logger.exception("Agent %s endgültig fehlgeschlagen nach Retry", agent.category)
+    return AgentResult(
+        agent=agent.category,
+        direction=Direction.NEUTRAL,
+        confidence=0,
+        kernaussage="Agent konnte keine Analyse liefern (auch nach Retry).",
+        fehler=str(last_exc),
+    )
 
 
 def fetch_price_history_daily(ticker: str, lookback_days: int = 260):
@@ -197,14 +228,12 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in folgendem Format:
 
     response = await client.messages.create(
         model=SYNTHESIS_MODEL,
-        max_tokens=1500,
+        max_tokens=4000,
         system=SYNTHESIS_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": synth_instructions}],
     )
 
-    text_parts = [b.text for b in response.content if b.type == "text"]
-    raw_text = "\n".join(text_parts).strip()
-    raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw_text = _extract_json_text(response)
     data = json.loads(raw_text)
 
     return SwingAnalysisReport(
