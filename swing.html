@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swing Analyst</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.0/vue.global.prod.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f7fa;--s1:#ffffff;--s2:#eef1f6;--s3:#e4e8f0;--border:rgba(0,0,0,0.1);--accent:#1a6fd4;--accent2:#e05a1a;--bull:#1a9e5c;--bear:#d42020;--neutral:#c47a00;--text:#1a1f2e;--muted:#5a6280;--mono:'IBM Plex Mono',monospace;--serif:'Fraunces',serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh}
+.hdr{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.hdr-title{font-family:var(--serif);font-size:18px;font-weight:300;display:flex;align-items:center;gap:8px}
+.hdr-title span{color:var(--accent);font-style:italic}
+.hdr-sub{font-size:12px;color:var(--muted)}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 60px}
+.input-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tinput{flex:1;min-width:180px;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:15px;background:var(--s1);color:var(--text)}
+.tinput:focus{outline:none;border-color:var(--accent)}
+.btn{padding:11px 18px;border-radius:8px;border:1px solid var(--border);background:var(--s1);color:var(--text);font-family:var(--mono);font-size:14px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:rgba(61,111,212,.4)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:#1660bd}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--muted);font-size:12px;padding:6px 10px}
+.upload-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.file-pill{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.file-pill button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0}
+.file-pill button:hover{color:var(--bear)}
+.hint{font-size:12px;color:var(--muted);margin-bottom:22px;line-height:1.5}
+.status-box{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;font-size:14px;color:var(--accent)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(26,111,212,.25);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{padding:14px 16px;background:rgba(212,32,32,.06);border:1px solid rgba(212,32,32,.25);border-radius:10px;margin-bottom:18px;font-size:13px;color:var(--bear)}
+
+.synth-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.synth-hdr{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.synth-ticker{font-family:var(--serif);font-size:22px;font-weight:300}
+.dir-pill{font-size:14px;font-weight:500;padding:5px 14px;border-radius:20px}
+.dir-pill.bullish{background:rgba(26,158,92,.1);color:var(--bull)}
+.dir-pill.bearish{background:rgba(212,32,32,.1);color:var(--bear)}
+.dir-pill.neutral{background:rgba(196,122,0,.1);color:var(--neutral)}
+.synth-body{padding:16px 18px;display:flex;flex-direction:column;gap:16px}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.meta-box{background:var(--s2);border-radius:8px;padding:10px 12px}
+.meta-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.meta-val{font-size:14px;font-weight:500}
+.crv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.crv-box{background:var(--s2);border-radius:8px;padding:10px;text-align:center}
+.crv-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.crv-val{font-size:16px;font-weight:500}
+.args-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.args-col-t{font-size:12px;font-weight:500;margin-bottom:6px}
+.args-col-t.bull{color:var(--bull)}.args-col-t.bear{color:var(--bear)}
+.arg-item{font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:6px;padding-left:12px;position:relative}
+.arg-item:before{content:'—';position:absolute;left:0;color:var(--muted)}
+.devil-box{background:rgba(196,122,0,.05);border:1px solid rgba(196,122,0,.2);border-radius:8px;padding:12px 14px}
+.devil-t{font-size:12px;font-weight:500;color:var(--neutral);margin-bottom:6px}
+.devil-txt{font-size:12.5px;line-height:1.55;color:var(--text)}
+.summary-txt{font-size:13.5px;line-height:1.65;color:var(--text)}
+.warn-box{background:var(--s2);border-radius:8px;padding:12px 14px}
+.warn-t{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.warn-item{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:5px;padding-left:12px;position:relative}
+.warn-item:before{content:'⚠';position:absolute;left:0}
+
+.agents-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:22px 0 12px}
+.agents-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.agent-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer}
+.agent-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.agent-name{font-size:12.5px;font-weight:500;color:var(--text);text-transform:capitalize}
+.agent-conf{font-size:11px;color:var(--muted)}
+.agent-dir{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agent-dir.bullish{background:var(--bull)}.agent-dir.bearish{background:var(--bear)}.agent-dir.neutral{background:var(--neutral)}
+.agent-txt{font-size:12px;color:var(--muted);line-height:1.5}
+.agent-txt.collapsed{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.agent-err{font-size:11px;color:var(--bear);margin-top:6px;font-style:italic}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="hdr">
+  <div class="hdr-title">📈 Swing <span>Analyst</span></div>
+  <div class="hdr-sub">16 Agenten · Fundamental · Technisch · Setup · Makro</div>
+</div>
+<div class="wrap">
+
+  <div class="input-row">
+    <input class="tinput" v-model="ticker" @keyup.enter="analyze" placeholder="Ticker eingeben, z.B. ALV.DE" :disabled="running">
+    <button class="btn" @click="triggerUpload" :disabled="!ticker.trim()||running">📎 Datei hochladen</button>
+    <input type="file" ref="fileInput" style="display:none" accept=".png,.jpg,.jpeg,.webp,.pdf,.csv" @change="handleUpload">
+    <button class="btn primary" @click="analyze" :disabled="!ticker.trim()||running">{{ running?'Analysiere...':'Analysieren' }}</button>
+  </div>
+
+  <div class="upload-row" v-if="uploadedFiles.length">
+    <span class="file-pill" v-for="(f,i) in uploadedFiles" :key="i">📎 {{ f.filename }}</span>
+    <button class="btn ghost" @click="clearUploads">Alle entfernen</button>
+  </div>
+
+  <div class="hint">Optional: Seasonax-Screenshot, SeekingAlpha-PDF oder Kursdaten-CSV zum Ticker hochladen, bevor du analysierst — fließt automatisch in die Agenten-Analyse ein.</div>
+
+  <div class="status-box" v-if="running">
+    <div class="spin"></div>
+    <div>Analysiere {{ ticker }} — 16 Agenten arbeiten parallel, das dauert 30–90 Sekunden...</div>
+  </div>
+
+  <div class="error-box" v-if="errorMsg">{{ errorMsg }}</div>
+
+  <template v-if="report">
+    <div class="synth-card">
+      <div class="synth-hdr">
+        <div class="synth-ticker">{{ report.ticker }}</div>
+        <div class="dir-pill" :class="report.gesamtbild">{{ dirLabel(report.gesamtbild) }} · {{ report.gesamt_konfidenz }}%</div>
+      </div>
+      <div class="synth-body">
+        <div class="meta-grid">
+          <div class="meta-box"><div class="meta-lbl">Kurszielspanne</div><div class="meta-val">{{ report.kurszielspanne||'—' }}</div></div>
+          <div class="meta-box"><div class="meta-lbl">Zeitrahmen</div><div class="meta-val">{{ report.zeitrahmen||'—' }}</div></div>
+        </div>
+
+        <div class="crv-grid" v-if="report.risk_reward">
+          <div class="crv-box"><div class="crv-lbl">Entry</div><div class="crv-val">{{ fmt(report.risk_reward.entry) }}</div></div>
+          <div class="crv-box"><div class="crv-lbl">Stop</div><div class="crv-val" style="color:var(--bear)">{{ fmt(report.risk_reward.stop) }}</div></div>
+          <div class="crv-box"><div class="crv-lbl">Ziel</div><div class="crv-val" style="color:var(--bull)">{{ fmt(report.risk_reward.ziel) }}</div></div>
+          <div class="crv-box"><div class="crv-lbl">CRV</div><div class="crv-val" style="color:var(--accent)">{{ fmt(report.risk_reward.crv) }}</div></div>
+        </div>
+
+        <div class="args-grid">
+          <div>
+            <div class="args-col-t bull">▲ Pro-Argumente</div>
+            <div class="arg-item" v-for="(a,i) in report.top_pro_argumente" :key="i">{{ a }}</div>
+          </div>
+          <div>
+            <div class="args-col-t bear">▼ Contra-Argumente</div>
+            <div class="arg-item" v-for="(a,i) in report.top_contra_argumente" :key="i">{{ a }}</div>
+          </div>
+        </div>
+
+        <div class="devil-box" v-if="report.devils_advocate_hinweis">
+          <div class="devil-t">🎭 Devil's Advocate</div>
+          <div class="devil-txt">{{ report.devils_advocate_hinweis }}</div>
+        </div>
+
+        <div class="summary-txt">{{ report.zusammenfassung }}</div>
+
+        <div class="warn-box" v-if="report.warnungen&&report.warnungen.length">
+          <div class="warn-t">Datenlücken & Warnungen</div>
+          <div class="warn-item" v-for="(w,i) in report.warnungen" :key="i">{{ w }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="agents-title">Einzelanalysen ({{ report.agenten_ergebnisse.length }} Agenten)</div>
+    <div class="agents-grid">
+      <div class="agent-card" v-for="(a,i) in report.agenten_ergebnisse" :key="i" @click="toggleExpand(i)">
+        <div class="agent-hdr">
+          <div style="display:flex;align-items:center;gap:7px">
+            <div class="agent-dir" :class="a.direction"></div>
+            <div class="agent-name">{{ a.agent.replace(/_/g,' ') }}</div>
+          </div>
+          <div class="agent-conf">{{ a.confidence }}%</div>
+        </div>
+        <div class="agent-txt" :class="{collapsed:expanded!==i}">{{ a.kernaussage }}</div>
+        <div class="agent-err" v-if="a.fehler">{{ a.fehler }}</div>
+      </div>
+    </div>
+  </template>
+
+</div>
+</div>
+<script>
+const {createApp,ref}=Vue;
+createApp({
+  setup(){
+    const API='http://76.13.157.4:5001';
+    const ticker=ref('');
+    const running=ref(false);
+    const report=ref(null);
+    const errorMsg=ref('');
+    const uploadedFiles=ref([]);
+    const fileInput=ref(null);
+    const expanded=ref(-1);
+
+    function dirLabel(d){return d==='bullish'?'▲ BULLISH':d==='bearish'?'▼ BEARISH':'— NEUTRAL';}
+    function fmt(v){return v===null||v===undefined?'—':v;}
+    function toggleExpand(i){expanded.value=expanded.value===i?-1:i;}
+    function triggerUpload(){fileInput.value.click();}
+
+    async function handleUpload(event){
+      const file=event.target.files[0];
+      if(!file||!ticker.value.trim())return;
+      const t=ticker.value.trim().toUpperCase();
+      const formData=new FormData();
+      formData.append('file',file);
+      try{
+        const res=await fetch(API+'/swing/upload/'+encodeURIComponent(t),{method:'POST',body:formData});
+        const d=await res.json();
+        if(d.success){
+          uploadedFiles.value.push({filename:d.filename});
+        }else{
+          errorMsg.value='Upload fehlgeschlagen: '+(d.detail||'unbekannter Fehler');
+        }
+      }catch(e){
+        errorMsg.value='Upload fehlgeschlagen: Backend nicht erreichbar.';
+      }
+      event.target.value='';
+    }
+
+    async function clearUploads(){
+      const t=ticker.value.trim().toUpperCase();
+      if(!t)return;
+      try{
+        await fetch(API+'/swing/upload/'+encodeURIComponent(t),{method:'DELETE'});
+        uploadedFiles.value=[];
+      }catch(e){}
+    }
+
+    async function analyze(){
+      const t=ticker.value.trim().toUpperCase();
+      if(!t||running.value)return;
+      running.value=true;
+      errorMsg.value='';
+      report.value=null;
+      expanded.value=-1;
+      try{
+        const res=await fetch(API+'/swing/analyze',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ticker:t})
+        });
+        const d=await res.json();
+        if(res.ok){
+          report.value=d;
+        }else{
+          errorMsg.value='Analyse fehlgeschlagen: '+(d.detail||'unbekannter Fehler');
+        }
+      }catch(e){
+        errorMsg.value='Analyse fehlgeschlagen: Backend nicht erreichbar.';
+      }
+      running.value=false;
+    }
+
+    return{ticker,running,report,errorMsg,uploadedFiles,fileInput,expanded,dirLabel,fmt,toggleExpand,triggerUpload,handleUpload,clearUploads,analyze};
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
