@@ -18,6 +18,8 @@ format_file_context) statt das Rad neu zu erfinden.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
@@ -42,6 +44,8 @@ _uploaded_context: dict[str, list[dict]] = {}
 class AnalyzeRequest(BaseModel):
     ticker: str
     kontext: str = ""  # Optional: zusätzlicher manueller Kontext-Text
+    swing_high: Optional[float] = None  # Optional: manuelles 52W-Hoch für Fibonacci
+    swing_low: Optional[float] = None   # Optional: manuelles 52W-Tief für Fibonacci
 
 
 def _get_stored_context_text(ticker: str) -> str:
@@ -116,6 +120,11 @@ async def analyze(req: AnalyzeRequest) -> SwingAnalysisReport:
     combined_context = "\n\n".join(combined_context_parts)
 
     try:
-        return await analyze_ticker(ticker, context=combined_context)
+        return await analyze_ticker(
+            ticker,
+            context=combined_context,
+            manual_swing_high=req.swing_high,
+            manual_swing_low=req.swing_low,
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Analyse fehlgeschlagen: {exc}") from exc
