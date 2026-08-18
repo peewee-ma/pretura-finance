@@ -1,21 +1,6 @@
 """
 FDAX Swing Analyst - Orchestrator
 ====================================
-Ruft alle konfigurierten Agenten parallel auf (asyncio.gather), sammelt die
-Ergebnisse ein und lässt den Synthese-Agenten daraus den Gesamtreport bauen.
-
-Modell-Wahl:
-    - Fachagenten laufen auf einem günstigeren/schnelleren Modell (Standard:
-      claude-haiku-4-5, analog zu eurem bestehenden Swarm-Setup).
-    - Der Synthese-Agent läuft auf einem stärkeren Modell (Standard: Sonnet),
-      da er die Gesamtabwägung trifft.
-
-Wire-up TODOs (markiert im Code mit # TODO):
-    - fetch_price_history_daily(): an eure bestehende Kursdatenquelle
-      anbinden (aktuell yfinance als Platzhalter, analog zum
-      markov-hedge-fund-method Skill).
-    - GEX-Whitelist-Domains in agents_config.py verifizieren, sobald
-      gex_analyzer.py-Datenquelle final geklärt ist.
 """
 
 from __future__ import annotations
@@ -35,11 +20,9 @@ logger = logging.getLogger("fdax_swing")
 AGENT_MODEL = "claude-haiku-4-5"
 SYNTHESIS_MODEL = "claude-sonnet-4-6"
 
-client = AsyncAnthropic()  # erwartet ANTHROPIC_API_KEY in der Umgebung
+client = AsyncAnthropic()
 
-# Max. Anzahl Websuchen pro Agent - begrenzt das Token-Budget, das für
-# Suchergebnisse "verbraucht" wird, bevor die finale JSON-Antwort kommt.
-MAX_WEB_SEARCHES_PER_AGENT = 3
+MAX_WEB_SEARCHES_PER_AGENT = 2
 
 AGENT_RESULT_JSON_INSTRUCTIONS = """
 Antworte AUSSCHLIESSLICH mit einem JSON-Objekt (kein Markdown, kein Fließtext davor/danach,
@@ -57,7 +40,7 @@ in exakt folgendem Format:
   "fehler": "<string oder null, falls du das Thema nicht belastbar einschätzen konntest>"
 }
 
-Nutze maximal 3 Websuchen. Fasse dich bei der Kernaussage kurz (2-4 Sätze), damit
+Nutze maximal 2 Websuchen. Fasse dich bei der Kernaussage kurz (2-4 Sätze), damit
 garantiert Platz für die abschließende JSON-Antwort bleibt.
 """
 
@@ -82,22 +65,34 @@ def _build_web_search_tool(agent: AgentConfig) -> Optional[dict]:
 def _extract_json_text(response) -> str:
     text_parts = [b.text for b in response.content if b.type == "text"]
     raw_text = "\n".join(text_parts).strip()
-    return raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
+    start = raw_text.find("{")
+    end = raw_text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        raw_text = raw_text[start : end + 1]
+
+    return raw_text
 
 
 async def _call_agent_once(agent: AgentConfig, tools: list, user_msg: str) -> AgentResult:
-    """Ein einzelner API-Call - kann bei leerer/kaputter Antwort eine Exception werfen,
-    die von _run_llm_agent für den Retry abgefangen wird."""
     response = await client.messages.create(
         model=AGENT_MODEL,
-        max_tokens=4000,
+        max_tokens=8000,
         system=agent.system_prompt,
         tools=tools,
         messages=[{"role": "user", "content": user_msg}],
     )
 
     raw_text = _extract_json_text(response)
-    data = json.loads(raw_text)  # wirft bei leer/kaputt -> Retry bzw. finaler Fehler
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError:
+        logger.error(
+            "Agent %s: JSON-Parse-Fehler. stop_reason=%s, raw_text[:500]=%r",
+            agent.category, response.stop_reason, raw_text[:500],
+        )
+        raise
 
     return AgentResult(
         agent=agent.category,
@@ -124,10 +119,10 @@ async def _run_llm_agent(agent: AgentConfig, ticker: str, context: str) -> Agent
     )
 
     last_exc: Optional[Exception] = None
-    for attempt in range(2):  # erster Versuch + 1 Retry
+    for attempt in range(2):
         try:
             return await _call_agent_once(agent, tools, user_msg)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last_exc = exc
             logger.warning(
                 "Agent %s Versuch %d fehlgeschlagen: %s", agent.category, attempt + 1, exc
@@ -145,11 +140,6 @@ async def _run_llm_agent(agent: AgentConfig, ticker: str, context: str) -> Agent
 
 
 def fetch_price_history_daily(ticker: str, lookback_days: int = 260):
-    """
-    TODO: An eure bestehende Kursdatenquelle anbinden.
-    Platzhalter-Implementierung via yfinance (Daily-Daten), analog zum
-    bereits genutzten markov-hedge-fund-method Skill.
-    """
     import yfinance as yf
 
     df = yf.Ticker(ticker).history(period=f"{lookback_days}d", interval="1d")
@@ -159,47 +149,51 @@ def fetch_price_history_daily(ticker: str, lookback_days: int = 260):
 
 
 async def _run_fibonacci_agent(ticker: str) -> AgentResult:
-    try:
-        df = await asyncio.to_thread(fetch_price_history_daily, ticker)
-        swing_high = float(df["High"].max())
-        swing_low = float(df["Low"].min())
-        last_close = float(df["Close"].iloc[-1])
-
-        diff = swing_high - swing_low
-        levels = {
-            "0.0": swing_high,
-            "23.6": swing_high - 0.236 * diff,
-            "38.2": swing_high - 0.382 * diff,
-            "50.0": swing_high - 0.5 * diff,
-            "61.8": swing_high - 0.618 * diff,
-            "78.6": swing_high - 0.786 * diff,
-            "100.0": swing_low,
-        }
-
-        nearest_level = min(levels.items(), key=lambda kv: abs(kv[1] - last_close))
-
-        return AgentResult(
-            agent=AgentCategory.FIBONACCI,
-            direction=Direction.NEUTRAL,
-            confidence=70,
-            kernaussage=(
-                f"Aktueller Kurs {last_close:.2f} liegt am nächsten am "
-                f"{nearest_level[0]}%-Retracement ({nearest_level[1]:.2f}). "
-                f"Swing-Range: {swing_low:.2f} - {swing_high:.2f}."
-            ),
-            zeitrahmen=None,
-            quellen=["berechnet aus Kursdaten"],
-            rohdaten={"levels": levels, "swing_high": swing_high, "swing_low": swing_low},
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Fibonacci-Agent fehlgeschlagen")
-        return AgentResult(
-            agent=AgentCategory.FIBONACCI,
-            direction=Direction.NEUTRAL,
-            confidence=0,
-            kernaussage="Fibonacci-Level konnten nicht berechnet werden.",
-            fehler=str(exc),
-        )
+    last_exc = None
+    for attempt in range(4):
+        try:
+            df = await asyncio.to_thread(fetch_price_history_daily, ticker)
+            swing_high = float(df["High"].max())
+            swing_low = float(df["Low"].min())
+            last_close = float(df["Close"].iloc[-1])
+            diff = swing_high - swing_low
+            levels = {
+                "0.0": swing_high,
+                "23.6": swing_high - 0.236 * diff,
+                "38.2": swing_high - 0.382 * diff,
+                "50.0": swing_high - 0.5 * diff,
+                "61.8": swing_high - 0.618 * diff,
+                "78.6": swing_high - 0.786 * diff,
+                "100.0": swing_low,
+            }
+            nearest_level = min(levels.items(), key=lambda kv: abs(kv[1] - last_close))
+            return AgentResult(
+                agent=AgentCategory.FIBONACCI,
+                direction=Direction.NEUTRAL,
+                confidence=70,
+                kernaussage=(
+                    f"Aktueller Kurs {last_close:.2f} liegt am naechsten am "
+                    f"{nearest_level[0]}%-Retracement ({nearest_level[1]:.2f}). "
+                    f"Swing-Range: {swing_low:.2f} - {swing_high:.2f}."
+                ),
+                zeitrahmen=None,
+                quellen=["berechnet aus Kursdaten"],
+                rohdaten={"levels": levels, "swing_high": swing_high, "swing_low": swing_low},
+            )
+        except Exception as exc:
+            last_exc = exc
+            wait_s = 3 * (attempt + 1)
+            logger.warning("Fibonacci-Agent Versuch %d fehlgeschlagen (%s), warte %ds", attempt + 1, exc, wait_s)
+            if attempt < 3:
+                await asyncio.sleep(wait_s)
+    logger.exception("Fibonacci-Agent endgueltig fehlgeschlagen nach Retries")
+    return AgentResult(
+        agent=AgentCategory.FIBONACCI,
+        direction=Direction.NEUTRAL,
+        confidence=0,
+        kernaussage="Fibonacci-Level konnten nicht berechnet werden (auch nach Retries).",
+        fehler=str(last_exc),
+    )
 
 
 async def _run_synthesis(ticker: str, results: list[AgentResult]) -> SwingAnalysisReport:
@@ -253,12 +247,10 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in folgendem Format:
 
 
 async def analyze_ticker(ticker: str, context: str = "") -> SwingAnalysisReport:
-    """Haupteinstiegspunkt: führt alle Agenten aus und liefert den Gesamtreport."""
-
     tasks = []
     for agent in AGENTS:
         if agent.web_access == "computed":
-            continue  # separat behandelt (aktuell nur Fibonacci)
+            continue
         tasks.append(_run_llm_agent(agent, ticker, context))
 
     tasks.append(_run_fibonacci_agent(ticker))
